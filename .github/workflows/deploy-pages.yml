@@ -1,4 +1,4 @@
-# Workflow to build and deploy the compiled React/Vite frontend to GitHub Pages
+# Workflow to build and deploy the compiled React/Vite frontend to GitHub Pages via modern direct deployment
 name: Deploy Web App to GitHub Pages
 
 on:
@@ -6,12 +6,25 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
 
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -31,16 +44,19 @@ jobs:
 
       - name: Clean Output Public assets mapping
         run: |
-          # Copy any existing pre-rendered public videos into the build artifact directory
-          # so they do not get lost during a new build compile iteration!
           if [ -d "public/generated" ]; then
             mkdir -p dist/generated
             cp -r public/generated/* dist/generated/ || echo "No files to copy"
           fi
 
-      - name: Deploy to GitHub Pages Branch
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          branch: gh-pages
-          folder: dist
-          clean: false # Do not delete existing videos from the pages branch!
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
