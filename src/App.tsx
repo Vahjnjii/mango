@@ -296,7 +296,7 @@ export default function App() {
       <main className="flex-1 min-h-0 w-full px-4 py-3 flex flex-col items-center justify-center relative z-10">
         
         {/* Simple 9:16 Video Player Card - Compact margins, maximized screen ratio */}
-        <div id="vertical_showcase_frame" className="relative h-full w-full max-h-[81dvh] aspect-[9/16] bg-black rounded-2xl border border-white/5 shadow-2xl flex flex-col overflow-hidden group">
+        <div id="vertical_showcase_frame" className="relative h-full w-full max-h-[66vh] xs:max-h-[70vh] sm:max-h-[74vh] md:max-h-[76vh] aspect-[9/16] bg-black rounded-2xl border border-white/5 shadow-2xl flex flex-col overflow-hidden group">
           
           <div className="relative w-full h-full overflow-hidden bg-black flex flex-col items-center justify-center">
             
@@ -372,7 +372,54 @@ export default function App() {
       </main>
 
       {/* Elegant Bottom Action Chat-style prompt with absolutely NO suggestions or chips */}
-      <footer id="chat_prompt_footer" className="border-t border-white/[0.03] bg-[#050508]/90 backdrop-blur-lg px-4 py-4 relative z-20 pb-6">
+      <footer id="chat_prompt_footer" className="border-t border-white/[0.03] bg-[#050508]/90 backdrop-blur-lg px-4 py-4 relative z-20 pb-6 space-y-3">
+        
+        {/* Sleek, dynamic history browser ribbon */}
+        {jobs.length > 0 && (
+          <div className="max-w-lg mx-auto flex items-center gap-2 overflow-x-auto pb-1 px-1 scrollbar-none">
+            <span className="text-[9px] font-mono font-bold text-gray-500 uppercase tracking-widest shrink-0">History:</span>
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+              {jobs.map((job) => {
+                const isSelected = selectedJob?.id === job.id;
+                const truncatedText = job.paragraph.length > 25 ? job.paragraph.substring(0, 23) + "..." : job.paragraph;
+                return (
+                  <button
+                    key={job.id}
+                    onClick={() => {
+                      setSelectedJob(job);
+                      setCustomStatus(`Selected historical video preview`);
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-sans flex items-center gap-1.5 transition-all text-left shrink-0 border ${
+                      isSelected
+                        ? "bg-cyan-950/40 text-cyan-300 border-cyan-500/30 font-medium"
+                        : "bg-[#0b0c12]/80 text-gray-400 border-white/[0.05] hover:text-gray-200 hover:border-white/10"
+                    }`}
+                  >
+                    <span className={`w-1 h-1 rounded-full shrink-0 ${
+                      job.status === "completed" ? "bg-green-400" : job.status === "failed" ? "bg-rose-500" : "bg-cyan-400 animate-pulse"
+                    }`} />
+                    <span className="truncate max-w-[140px]">{truncatedText}</span>
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => {
+                if (confirm("Are you sure you want to clear your video render history?")) {
+                  setJobs([]);
+                  setSelectedJob(null);
+                  localStorage.removeItem("gha_video_jobs");
+                  setCustomStatus("History cleared");
+                }
+              }}
+              className="px-2 py-1 rounded-full text-[9px] font-mono text-rose-500/80 hover:text-rose-400 hover:bg-rose-955/20 transition-all shrink-0 ml-auto"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
         <div className="max-w-lg mx-auto relative flex items-end gap-2 bg-[#09090c] border border-white/[0.06] rounded-xl p-2 focus-within:border-cyan-500/30 transition-colors">
           
           <textarea
