@@ -4,30 +4,19 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
   RefreshCw,
   Film,
   Download,
-  Send,
-  HelpCircle,
-  Play,
-  RotateCcw,
-  Plus
+  Send
 } from "lucide-react";
 import { VideoJob, AppConfig } from "./types";
-
-const SUGGESTIONS = [
-  "A glowing deep sea submarine discovering glowing ancient ruins",
-  "A futuristic rover driving into a massive Martian dust storm",
-  "An ancient steam train speeding through a misty pine valley"
-];
 
 export default function App() {
   const isGitHubPages = typeof window !== "undefined" && window.location.hostname.endsWith("github.io");
 
-  // Auto-detect Repository structure cleanly
+  // Keep repository details detected from pages URL or fallback to configuration values
   const extractRepoDetails = () => {
     let owner = "";
     let repo = "";
@@ -81,7 +70,7 @@ export default function App() {
   const [isPolling, setIsPolling] = useState(false);
   const pollingTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Active video tracking
+  // Active movie slot tracking
   const [selectedJob, setSelectedJob] = useState<VideoJob | null>(() => {
     const savedJobs = localStorage.getItem("gha_video_jobs");
     if (savedJobs) {
@@ -97,7 +86,6 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Save Settings state changes
   useEffect(() => {
     localStorage.setItem("gha_video_config", JSON.stringify(config));
   }, [config]);
@@ -148,7 +136,7 @@ export default function App() {
         }
       }
     } catch (err) {
-      // Quietly wait for generation pipeline
+      // Periodic check
     }
   };
 
@@ -184,7 +172,7 @@ export default function App() {
         const inputOwner = prompt("Enter GitHub Username / Owner:", actualOwner);
         const inputRepo = prompt("Enter GitHub Repository Name:", actualRepo);
         if (!inputOwner || !inputRepo) {
-          setCustomStatus("Error: GitHub Owner and Repo configuration required.");
+          setCustomStatus("Error: Configuration missing.");
           return;
         }
         actualOwner = inputOwner;
@@ -193,9 +181,9 @@ export default function App() {
       }
 
       if (!actualPat) {
-        const inputPat = prompt("Enter GitHub Personal Access Token (PAT) with workflow scope action triggers:");
+        const inputPat = prompt("Enter GitHub PAT with Actions workflow scope triggers:");
         if (!inputPat) {
-          setCustomStatus("Error: PAT authorization required.");
+          setCustomStatus("Error: PAT authorization token required.");
           return;
         }
         actualPat = inputPat;
@@ -215,7 +203,7 @@ export default function App() {
     setCurrentJobId(videoId);
     setIsPolling(true);
     setSelectedJob(newJob);
-    setCustomStatus("Triggering generator pipeline...");
+    setCustomStatus("Pipeline rendering...");
     setParagraph("");
 
     if (runMode === "local") {
@@ -230,10 +218,10 @@ export default function App() {
             video_id: videoId
           })
         });
-        if (!res.ok) throw new Error("Local task request failed.");
-        setCustomStatus("Creating assets inside sandbox...");
+        if (!res.ok) throw new Error("Sandbox request rejected.");
+        setCustomStatus("Rendering assets...");
       } catch (err: any) {
-        setCustomStatus(`Execution Error: ${err.message}`);
+        setCustomStatus(`Error: ${err.message}`);
         setIsPolling(false);
         setCurrentJobId(null);
       }
@@ -262,9 +250,9 @@ export default function App() {
 
         if (!res.ok) {
           const errMsg = await res.text();
-          throw new Error(`Dispatch rejected (${res.status}): ${errMsg}`);
+          throw new Error(`Rejected (${res.status}): ${errMsg}`);
         }
-        setCustomStatus("Action dispatched! Compiling cinematic frames...");
+        setCustomStatus("Workflow dispatched!");
       } catch (err: any) {
         setCustomStatus(`Error: ${err.message}`);
         setIsPolling(false);
@@ -280,40 +268,35 @@ export default function App() {
     }
   };
 
-  const loadRandomSuggestion = () => {
-    const randomIndex = Math.floor(Math.random() * SUGGESTIONS.length);
-    setParagraph(SUGGESTIONS[randomIndex]);
-  };
-
   return (
-    <div id="clean_app_wrapper" className="h-[100dvh] w-full bg-[#050608] text-gray-100 font-sans antialiased overflow-hidden flex flex-col justify-between selection:bg-cyan-500 selection:text-black relative">
+    <div id="clean_app_wrapper" className="h-[100dvh] w-full bg-[#040406] text-gray-100 font-sans antialiased overflow-hidden flex flex-col justify-between selection:bg-cyan-500 selection:text-black relative">
       
-      {/* Immersive space background noise */}
-      <div className="absolute inset-0 bg-[radial-gradient(#151720_1.2px,transparent_1.2px)] [background-size:24px_24px] pointer-events-none opacity-40"></div>
+      {/* High-end cinematic space background noise */}
+      <div className="absolute inset-0 bg-[radial-gradient(#11131c_1.2px,transparent_1.2px)] [background-size:24px_24px] pointer-events-none opacity-40"></div>
 
-      {/* Minimalism Header */}
-      <header className="relative px-6 py-3 flex items-center justify-between border-b border-[#121420]/20 bg-[#06070a]/90 backdrop-blur-md z-20">
+      {/* Ultra Clean & Minimal Header */}
+      <header className="relative px-6 py-3 flex items-center justify-between border-b border-white/[0.03] bg-[#050508]/90 backdrop-blur-md z-20">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
-          <span className="text-xs font-semibold tracking-wider text-gray-400">Live Video Engine</span>
+          <span className="text-xs font-semibold tracking-wider text-gray-400">Cinematic Video Player</span>
         </div>
         
-        {isPolling ? (
-          <div className="flex items-center gap-1.5 bg-cyan-950/20 border border-cyan-800/30 text-[9px] px-2.5 py-1 rounded-full text-cyan-300 font-mono">
-            <RefreshCw className="w-3 h-3 animate-spin text-cyan-400/90" /> {customStatus || "Generating..."}
-          </div>
-        ) : (
-          <div className="text-[10px] text-gray-500 font-mono">
-            {customStatus}
-          </div>
-        )}
+        <div className="text-[10px] text-gray-500 font-mono">
+          {isPolling ? (
+            <span className="text-cyan-400 flex items-center gap-1">
+              <RefreshCw className="w-3 h-3 animate-spin inline" /> {customStatus}
+            </span>
+          ) : (
+            <span>{customStatus}</span>
+          )}
+        </div>
       </header>
 
-      {/* Pure Portrait Content Viewport Area */}
-      <main className="flex-1 min-h-0 w-full px-4 py-2 flex flex-col items-center justify-center relative z-10">
+      {/* True Portrait Content Viewport Area with maximum allowable sizing */}
+      <main className="flex-1 min-h-0 w-full px-4 py-3 flex flex-col items-center justify-center relative z-10">
         
-        {/* Simple 9:16 Video Player Card with absolute minimum distraction */}
-        <div id="vertical_showcase_frame" className="relative h-full w-full max-h-[75vh] md:max-h-[78vh] aspect-[9/16] bg-black rounded-2xl border border-white/5 shadow-2xl flex flex-col overflow-hidden group">
+        {/* Simple 9:16 Video Player Card - Compact margins, maximized screen ratio */}
+        <div id="vertical_showcase_frame" className="relative h-full w-full max-h-[81dvh] aspect-[9/16] bg-black rounded-2xl border border-white/5 shadow-2xl flex flex-col overflow-hidden group">
           
           <div className="relative w-full h-full overflow-hidden bg-black flex flex-col items-center justify-center">
             
@@ -331,7 +314,7 @@ export default function App() {
                 
                 {/* Text overlay dynamic subtitle overlay */}
                 {selectedJob.alignment && (
-                  <div className="absolute bottom-6 left-4 right-4 bg-black/80 backdrop-blur-md border border-white/10 p-2.5 text-center text-xs font-sans pointer-events-none z-10 rounded-xl max-w-[90%] mx-auto">
+                  <div className="absolute bottom-6 left-4 right-4 bg-black/85 backdrop-blur-md border border-white/10 p-2.5 text-center text-xs font-sans pointer-events-none z-10 rounded-xl max-w-[90%] mx-auto">
                     <p className="text-cyan-300 font-extrabold tracking-wide leading-relaxed">
                       {selectedJob.alignment.wordTimestamps
                         ?.filter(w => currentTime >= w.start && currentTime <= w.end)
@@ -364,7 +347,7 @@ export default function App() {
                   <Film className="w-5 h-5 text-gray-500" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-gray-300 font-medium">Render Screen Empty</p>
+                  <p className="text-gray-300 font-medium">Renderer Standby</p>
                   <p className="text-[10px] text-gray-500 leading-relaxed max-w-[200px] mx-auto">
                     Type a prompt scenario below to compile and preview your cinema immediately.
                   </p>
@@ -388,9 +371,9 @@ export default function App() {
 
       </main>
 
-      {/* Elegant Bottom Action Chat-style prompt */}
-      <footer id="chat_prompt_footer" className="border-t border-[#121420]/20 bg-[#06070a]/90 backdrop-blur-lg px-4 py-4 relative z-20 pb-6">
-        <div className="max-w-lg mx-auto relative flex items-end gap-2 bg-[#090a0f] border border-white/[0.07] rounded-xl p-2 focus-within:border-cyan-500/30 transition-colors">
+      {/* Elegant Bottom Action Chat-style prompt with absolutely NO suggestions or chips */}
+      <footer id="chat_prompt_footer" className="border-t border-white/[0.03] bg-[#050508]/90 backdrop-blur-lg px-4 py-4 relative z-20 pb-6">
+        <div className="max-w-lg mx-auto relative flex items-end gap-2 bg-[#09090c] border border-white/[0.06] rounded-xl p-2 focus-within:border-cyan-500/30 transition-colors">
           
           <textarea
             id="story_paragraph_textarea"
@@ -398,18 +381,10 @@ export default function App() {
             value={paragraph}
             onKeyDown={handleKeyDown}
             onChange={e => setParagraph(e.target.value)}
-            placeholder="Describe your scene space story scenario..."
+            placeholder="Type your script scenario here..."
             className="flex-1 bg-transparent border-none text-xs text-gray-200 leading-normal font-sans placeholder-gray-500 resize-none max-h-20 outline-none focus:ring-0 p-2 py-1"
             style={{ height: "auto" }}
           />
-
-          <button
-            onClick={loadRandomSuggestion}
-            className="p-2 text-gray-500 hover:text-gray-300 transition-colors"
-            title="Load random scenario idea"
-          >
-            <Sparkles className="w-4 h-4" />
-          </button>
 
           <button
             id="trigger_generation_btn"
