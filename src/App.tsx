@@ -11,15 +11,23 @@ import {
   Film,
   Download,
   Send,
-  HelpCircle
+  HelpCircle,
+  Play,
+  RotateCcw,
+  Plus
 } from "lucide-react";
 import { VideoJob, AppConfig } from "./types";
 
+const SUGGESTIONS = [
+  "A glowing deep sea submarine discovering glowing ancient ruins",
+  "A futuristic rover driving into a massive Martian dust storm",
+  "An ancient steam train speeding through a misty pine valley"
+];
+
 export default function App() {
-  // Detect mode automatically depending on where the app is loaded
   const isGitHubPages = typeof window !== "undefined" && window.location.hostname.endsWith("github.io");
 
-  // Helper to extract Repo details from GitHub URL automatically
+  // Auto-detect Repository structure cleanly
   const extractRepoDetails = () => {
     let owner = "";
     let repo = "";
@@ -60,8 +68,6 @@ export default function App() {
   });
 
   const [paragraph, setParagraph] = useState("");
-  
-  // --- Video Jobs State ---
   const [jobs, setJobs] = useState<VideoJob[]>(() => {
     const saved = localStorage.getItem("gha_video_jobs");
     if (saved) {
@@ -75,7 +81,7 @@ export default function App() {
   const [isPolling, setIsPolling] = useState(false);
   const pollingTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // --- Active Video Playback ---
+  // Active video tracking
   const [selectedJob, setSelectedJob] = useState<VideoJob | null>(() => {
     const savedJobs = localStorage.getItem("gha_video_jobs");
     if (savedJobs) {
@@ -91,7 +97,7 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Auto-saves state in background
+  // Save Settings state changes
   useEffect(() => {
     localStorage.setItem("gha_video_config", JSON.stringify(config));
   }, [config]);
@@ -106,19 +112,14 @@ export default function App() {
     }
   };
 
-  // Build the relative video file path cleanly
   const getFullVideoUrl = (job: VideoJob) => {
     if (!job.videoUrl) return "";
-    // Inside general production setups, generated MP4 sits inside the generated folders
     return `./generated/${job.id}/${job.id}.mp4`;
   };
 
-  // Poll for pipeline progress
   const checkJobStatus = async (jobId: string, type: string) => {
     try {
-      // Clean request uniform pointing for both static deployment & development paths
       const statusUrl = `./generated/${jobId}/status.json?t=${Date.now()}`;
-
       const res = await fetch(statusUrl);
       if (res.ok) {
         const statusData = await res.json();
@@ -136,18 +137,18 @@ export default function App() {
 
           setJobs(prev => prev.map(j => j.id === jobId ? updated : j));
           setSelectedJob(updated);
-          setCustomStatus("🎉 Video rendered completely!");
+          setCustomStatus("Ready");
           setIsPolling(false);
           setCurrentJobId(null);
         } else if (statusData.status === "failed") {
           setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: "failed", error: statusData.error } : j));
-          setCustomStatus(`❌ Rendering failed: ${statusData.error}`);
+          setCustomStatus(`Failed: ${statusData.error}`);
           setIsPolling(false);
           setCurrentJobId(null);
         }
       }
     } catch (err) {
-      console.warn("Poll interval checked, waiting for video content files...", err);
+      // Quietly wait for generation pipeline
     }
   };
 
@@ -163,7 +164,6 @@ export default function App() {
     };
   }, [isPolling, currentJobId, jobs]);
 
-  // Request to execute generator pipeline
   const triggerCompilation = async (textToSend: string) => {
     const promptText = textToSend.trim();
     if (!promptText) return;
@@ -181,10 +181,10 @@ export default function App() {
       actualRepo = actualRepo || autoDetails.repo;
 
       if (!actualOwner || !actualRepo) {
-        const inputOwner = prompt("Enter your GitHub repo target owner (username):", actualOwner);
-        const inputRepo = prompt("Enter your GitHub repo name:", actualRepo);
+        const inputOwner = prompt("Enter GitHub Username / Owner:", actualOwner);
+        const inputRepo = prompt("Enter GitHub Repository Name:", actualRepo);
         if (!inputOwner || !inputRepo) {
-          setCustomStatus("Required Repository configuration missing!");
+          setCustomStatus("Error: GitHub Owner and Repo configuration required.");
           return;
         }
         actualOwner = inputOwner;
@@ -193,9 +193,9 @@ export default function App() {
       }
 
       if (!actualPat) {
-        const inputPat = prompt("Enter GitHub Personal Access Token (PAT) with repository trigger workflow authorization to process dispatch request:");
+        const inputPat = prompt("Enter GitHub Personal Access Token (PAT) with workflow scope action triggers:");
         if (!inputPat) {
-          setCustomStatus("PAT authorization is required to continue.");
+          setCustomStatus("Error: PAT authorization required.");
           return;
         }
         actualPat = inputPat;
@@ -215,7 +215,7 @@ export default function App() {
     setCurrentJobId(videoId);
     setIsPolling(true);
     setSelectedJob(newJob);
-    setCustomStatus("Triggering generator sequence...");
+    setCustomStatus("Triggering generator pipeline...");
     setParagraph("");
 
     if (runMode === "local") {
@@ -230,17 +230,15 @@ export default function App() {
             video_id: videoId
           })
         });
-        if (!res.ok) throw new Error("Local worker rejection.");
-        setCustomStatus("Local generator running inside container sandbox...");
+        if (!res.ok) throw new Error("Local task request failed.");
+        setCustomStatus("Creating assets inside sandbox...");
       } catch (err: any) {
-        setCustomStatus(`Local Execution Error: ${err.message}`);
+        setCustomStatus(`Execution Error: ${err.message}`);
         setIsPolling(false);
         setCurrentJobId(null);
       }
     } else {
-      // Trigger via GitHub API directly from static site securely
       try {
-        // Post direct Dispatch message target
         const workflowFile = "generate-video.yml";
         const dispatchUrl = `https://api.github.com/repos/${actualOwner}/${actualRepo}/actions/workflows/${workflowFile}/dispatches`;
 
@@ -263,12 +261,12 @@ export default function App() {
         });
 
         if (!res.ok) {
-          const detailMsg = await res.text();
-          throw new Error(`Dispatch rejected (${res.status}): ${detailMsg}`);
+          const errMsg = await res.text();
+          throw new Error(`Dispatch rejected (${res.status}): ${errMsg}`);
         }
-        setCustomStatus("🚀 GitHub Dispatch successful! Pipeline compiling video...");
+        setCustomStatus("Action dispatched! Compiling cinematic frames...");
       } catch (err: any) {
-        setCustomStatus(`Remote Trigger Error: ${err.message}`);
+        setCustomStatus(`Error: ${err.message}`);
         setIsPolling(false);
         setCurrentJobId(null);
       }
@@ -282,33 +280,42 @@ export default function App() {
     }
   };
 
+  const loadRandomSuggestion = () => {
+    const randomIndex = Math.floor(Math.random() * SUGGESTIONS.length);
+    setParagraph(SUGGESTIONS[randomIndex]);
+  };
+
   return (
-    <div id="clean_app_wrapper" className="h-[100dvh] w-full bg-[#040508] text-gray-100 font-sans antialiased overflow-hidden flex flex-col justify-between selection:bg-cyan-500 selection:text-black relative">
+    <div id="clean_app_wrapper" className="h-[100dvh] w-full bg-[#050608] text-gray-100 font-sans antialiased overflow-hidden flex flex-col justify-between selection:bg-cyan-500 selection:text-black relative">
       
-      {/* Immersive Dark Cosmic Grid */}
-      <div className="absolute inset-0 bg-[radial-gradient(#121319_1.5px,transparent_1.5px)] [background-size:24px_24px] pointer-events-none opacity-40"></div>
+      {/* Immersive space background noise */}
+      <div className="absolute inset-0 bg-[radial-gradient(#151720_1.2px,transparent_1.2px)] [background-size:24px_24px] pointer-events-none opacity-40"></div>
 
       {/* Minimalism Header */}
-      <header className="relative px-6 py-3.5 flex items-center justify-between border-b border-[#121420]/30 bg-[#06070a]/90 backdrop-blur-md z-20">
+      <header className="relative px-6 py-3 flex items-center justify-between border-b border-[#121420]/20 bg-[#06070a]/90 backdrop-blur-md z-20">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
-          <span className="text-xs font-bold uppercase tracking-widest text-[#8c94a9]">Live Video Engine</span>
+          <span className="text-xs font-semibold tracking-wider text-gray-400">Live Video Engine</span>
         </div>
         
-        {isPolling && (
-          <div className="flex items-center gap-1.5 bg-cyan-950/30 border border-cyan-800/40 text-[9px] px-2.5 py-1 rounded-full text-cyan-300 font-mono">
-            <RefreshCw className="w-3 h-3 animate-spin" /> Compiling...
+        {isPolling ? (
+          <div className="flex items-center gap-1.5 bg-cyan-950/20 border border-cyan-800/30 text-[9px] px-2.5 py-1 rounded-full text-cyan-300 font-mono">
+            <RefreshCw className="w-3 h-3 animate-spin text-cyan-400/90" /> {customStatus || "Generating..."}
+          </div>
+        ) : (
+          <div className="text-[10px] text-gray-500 font-mono">
+            {customStatus}
           </div>
         )}
       </header>
 
-      {/* Primary Portrait Content Viewport Area */}
-      <main className="flex-1 min-h-0 w-full px-4 py-3 flex flex-col items-center justify-center relative z-10">
+      {/* Pure Portrait Content Viewport Area */}
+      <main className="flex-1 min-h-0 w-full px-4 py-2 flex flex-col items-center justify-center relative z-10">
         
-        {/* Absolute 9:16 Cinema Player with ultra round curves and razor sharp contrast */}
-        <div id="vertical_showcase_frame" className="relative h-full w-full max-h-[72vh] sm:max-h-[76vh] md:max-h-[78vh] aspect-[9/16] bg-black rounded-3xl border-2 border-[#151928]/90 shadow-2xl flex flex-col overflow-hidden">
+        {/* Simple 9:16 Video Player Card with absolute minimum distraction */}
+        <div id="vertical_showcase_frame" className="relative h-full w-full max-h-[75vh] md:max-h-[78vh] aspect-[9/16] bg-black rounded-2xl border border-white/5 shadow-2xl flex flex-col overflow-hidden group">
           
-          <div className="relative w-full h-full overflow-hidden bg-[#05060a] flex flex-col items-center justify-center">
+          <div className="relative w-full h-full overflow-hidden bg-black flex flex-col items-center justify-center">
             
             {selectedJob?.status === "completed" && selectedJob.videoUrl ? (
               <>
@@ -322,9 +329,9 @@ export default function App() {
                   className="w-full h-full object-cover"
                 />
                 
-                {/* Visual Segment / Words Interactive subtitled banner */}
+                {/* Text overlay dynamic subtitle overlay */}
                 {selectedJob.alignment && (
-                  <div className="absolute bottom-6 left-4 right-4 bg-black/85 backdrop-blur-md border border-cyan-500/20 p-2.5 text-center text-xs font-sans pointer-events-none z-10 rounded-xl max-w-[90%] mx-auto shadow-xl">
+                  <div className="absolute bottom-6 left-4 right-4 bg-black/80 backdrop-blur-md border border-white/10 p-2.5 text-center text-xs font-sans pointer-events-none z-10 rounded-xl max-w-[90%] mx-auto">
                     <p className="text-cyan-300 font-extrabold tracking-wide leading-relaxed">
                       {selectedJob.alignment.wordTimestamps
                         ?.filter(w => currentTime >= w.start && currentTime <= w.end)
@@ -339,38 +346,39 @@ export default function App() {
                 )}
               </>
             ) : selectedJob?.status === "processing" ? (
-              <div className="p-6 text-center space-y-6 text-xs font-sans">
+              <div className="p-6 text-center space-y-5 text-xs font-sans">
                 <div className="flex justify-center">
                   <div className="relative">
-                    <div className="w-14 h-14 border-4 border-indigo-950/50 border-t-cyan-400 rounded-full animate-spin"></div>
-                    <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                    <div className="w-12 h-12 border-3 border-cyan-500/10 border-t-cyan-400 rounded-full animate-spin"></div>
+                    <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                   </div>
                 </div>
-                <div className="space-y-1.5 px-4">
-                  <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest block">Compiling Studio Pipeline</span>
-                  <div className="font-extrabold text-white text-sm">Rendering Frame Asset...</div>
-                  <p className="text-[10px] text-gray-500 leading-normal">Fusing cinematic audio narration & high quality SDXL storyboard frames</p>
+                <div className="space-y-1 px-4">
+                  <div className="font-bold text-gray-200">Rendering Video...</div>
+                  <p className="text-[10px] text-gray-500 leading-normal">Fusing sound effects, narrations & visual segments in the cloud</p>
                 </div>
               </div>
             ) : (
               <div className="p-8 text-center space-y-4 text-xs text-gray-500">
-                <div className="w-14 h-14 rounded-full bg-[#0c0d15] flex items-center justify-center mx-auto border border-[#171a2a]">
-                  <Film className="w-6 h-6 text-gray-600" />
+                <div className="w-12 h-12 rounded-full bg-[#0b0c10] flex items-center justify-center mx-auto border border-white/[0.04]">
+                  <Film className="w-5 h-5 text-gray-500" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-gray-400 font-bold text-sm">No Video Generated</p>
-                  <p className="text-[10px] text-gray-600 px-6 leading-relaxed">Enter a scenario flow sequence down below to create & render your cinema.</p>
+                  <p className="text-gray-300 font-medium">Render Screen Empty</p>
+                  <p className="text-[10px] text-gray-500 leading-relaxed max-w-[200px] mx-auto">
+                    Type a prompt scenario below to compile and preview your cinema immediately.
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Float Action Download Trigger */}
+            {/* Quick floating Actions */}
             {selectedJob?.status === 'completed' && selectedJob.videoUrl && (
               <a
                 href={getFullVideoUrl(selectedJob)}
                 download={`render_${selectedJob.id}.mp4`}
-                className="absolute top-4 right-4 bg-black/80 hover:bg-black p-2.5 rounded-full border border-[#1c1f2d] text-cyan-400 hover:text-cyan-300 transition-colors z-20"
-                title="Download MP4 Clip"
+                className="absolute top-4 right-4 bg-black/60 hover:bg-black p-2.5 rounded-full border border-white/10 text-cyan-400 hover:text-cyan-300 transition-colors z-20 opacity-0 group-hover:opacity-100 duration-200"
+                title="Download Video File"
               >
                 <Download className="w-4 h-4" />
               </a>
@@ -378,16 +386,11 @@ export default function App() {
           </div>
         </div>
 
-        {/* Minimal compact subtitle status info track */}
-        <div className="text-center font-mono text-[10px] text-gray-500 mt-2.5">
-          {customStatus}
-        </div>
-
       </main>
 
-      {/* Premium Screen-Anchored Single Chat Command Box */}
-      <footer id="chat_prompt_footer" className="border-t border-[#121420]/30 bg-[#050609]/95 px-4 py-4 relative z-20 pb-5">
-        <div className="max-w-lg mx-auto relative flex items-end gap-2 bg-[#090b10] border border-[#161a29] rounded-xl p-2 focus-within:border-cyan-500/40 transition-colors">
+      {/* Elegant Bottom Action Chat-style prompt */}
+      <footer id="chat_prompt_footer" className="border-t border-[#121420]/20 bg-[#06070a]/90 backdrop-blur-lg px-4 py-4 relative z-20 pb-6">
+        <div className="max-w-lg mx-auto relative flex items-end gap-2 bg-[#090a0f] border border-white/[0.07] rounded-xl p-2 focus-within:border-cyan-500/30 transition-colors">
           
           <textarea
             id="story_paragraph_textarea"
@@ -395,10 +398,18 @@ export default function App() {
             value={paragraph}
             onKeyDown={handleKeyDown}
             onChange={e => setParagraph(e.target.value)}
-            placeholder="Type your script scenario narrative here to compile..."
-            className="flex-1 bg-transparent border-none text-xs text-gray-200 leading-normal font-sans placeholder-gray-600 resize-none max-h-20 outline-none focus:ring-0 p-2 py-1"
+            placeholder="Describe your scene space story scenario..."
+            className="flex-1 bg-transparent border-none text-xs text-gray-200 leading-normal font-sans placeholder-gray-500 resize-none max-h-20 outline-none focus:ring-0 p-2 py-1"
             style={{ height: "auto" }}
           />
+
+          <button
+            onClick={loadRandomSuggestion}
+            className="p-2 text-gray-500 hover:text-gray-300 transition-colors"
+            title="Load random scenario idea"
+          >
+            <Sparkles className="w-4 h-4" />
+          </button>
 
           <button
             id="trigger_generation_btn"
@@ -406,8 +417,8 @@ export default function App() {
             disabled={isPolling || !paragraph.trim()}
             className={`p-2.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
               isPolling || !paragraph.trim()
-                ? "bg-[#0d0f17] text-gray-700 cursor-not-allowed"
-                : "bg-gradient-to-tr from-cyan-400 to-indigo-500 text-black hover:opacity-95 active:scale-95 shadow-md shadow-cyan-950/20"
+                ? "bg-white/[0.02] text-gray-600 cursor-not-allowed"
+                : "bg-gradient-to-tr from-cyan-400 to-indigo-500 text-black hover:opacity-95 active:scale-95"
             }`}
           >
             {isPolling ? (
