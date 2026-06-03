@@ -1,0 +1,6 @@
+{
+  "name": "GitHub Actions Video Editor",
+  "description": "An automated script-to-video editing engine powered by Gemini AI, Cloudflare Image Generation, and GitHub Actions",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

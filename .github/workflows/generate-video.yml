@@ -1,0 +1,78 @@
+# Workflow to generate video using Gemini and Cloudflare, triggered from client app via manual trigger
+name: Generate Vertical Video Task
+
+on:
+  workflow_dispatch:
+    inputs:
+      content_paragraph:
+        description: 'Story text/prompt to convert into a 9:16 vertical video'
+        required: true
+        type: string
+        default: 'In the silent cosmos, a futuristic voyager capsule sails around the luminous cyan gas clouds of an unknown system. An alien beacon pulses beneath the clouds.'
+      cloudflare_urls:
+        description: 'Line-separated Cloudflare Image URLs to use sequentially'
+        required: false
+        type: string
+      gemini_api_keys:
+        description: 'Line-separated rotating Gemini API Keys (optional if repo secret is configured)'
+        required: false
+        type: string
+      video_id:
+        description: 'Unique video ID used for naming and retrieval'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-node-version: 18
+          cache: 'npm'
+
+      - name: Install System FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Render Video Script
+        env:
+          CONTENT_PARAGRAPH: ${{ inputs.content_paragraph }}
+          CLOUDFLARE_URLS: ${{ inputs.cloudflare_urls }}
+          GEMINI_API_KEYS: ${{ inputs.gemini_api_keys || secrets.GEMINI_API_KEYS }}
+          VIDEO_ID: ${{ inputs.video_id }}
+          OUTPUT_DIR: './public/generated'
+        run: node scripts/generate-video.js
+
+      - name: Commit & Push Video Outputs
+        run: |
+          git config --global user.name "GitHub Actions Video Editor"
+          git config --global user.email "actions@github.com"
+          
+          # Force pull of latest, to prevent conflicts if branch updated
+          git pull origin main --rebase || echo "Pull skipped"
+          
+          git add public/generated/
+          
+          # Only commit and push if files actually changed
+          if git diff --cached --quiet; then
+            echo "No changes to commit. Video generation might have failed before save."
+          else
+            git commit -m "Auto-generated video assets for run ${{ inputs.video_id }}"
+            git push origin main || git push origin master || echo "Push failed, continuing..."
+          fi

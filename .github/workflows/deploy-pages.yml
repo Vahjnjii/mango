@@ -1,0 +1,46 @@
+# Workflow to build and deploy the compiled React/Vite frontend to GitHub Pages
+name: Deploy Web App to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Production Assets
+        run: npm run build
+
+      - name: Clean Output Public assets mapping
+        run: |
+          # Copy any existing pre-rendered public videos into the build artifact directory
+          # so they do not get lost during a new build compile iteration!
+          if [ -d "public/generated" ]; then
+            mkdir -p dist/generated
+            cp -r public/generated/* dist/generated/ || echo "No files to copy"
+          fi
+
+      - name: Deploy to GitHub Pages Branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: dist
+          clean: false # Do not delete existing videos from the pages branch!
